@@ -1,0 +1,110 @@
+{
+	"name": "2 Full Load Using Array_with_Json",
+	"properties": {
+		"activities": [
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@variables('ListOfTables')",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy data1",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"sqlReaderQuery": {
+										"value": "@concat('select ',item().Column,' from ',item().Schema,'.',item().tableName)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "Ds_SqlServer_Onprem",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Ds_Blob_Output_Parameter",
+									"type": "DatasetReference",
+									"parameters": {
+										"Schema": {
+											"value": "@item().Schema",
+											"type": "Expression"
+										},
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"variables": {
+			"ListOfTables": {
+				"type": "Array",
+				"defaultValue": [
+					{
+						"schema": "dbo",
+						"tablename": "Customers",
+						"filename": "Customers",
+						"Column": "CustomerID,FirstName,LastName"
+					},
+					{
+						"schema": "dbo",
+						"tablename": "Products",
+						"filename": "Products",
+						"Column": "ProductID,ProductName"
+					}
+				]
+			}
+		},
+		"folder": {
+			"name": "Full Load"
+		},
+		"annotations": []
+	}
+}

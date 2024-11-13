@@ -1,0 +1,34 @@
+{
+	"name": "Ds_Blob_Output_Parameter",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Ls_blob",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"Schema": {
+				"type": "string"
+			},
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": {
+					"value": "@concat(dataset().Schema,'_',dataset().tableName,'.csv')",
+					"type": "Expression"
+				},
+				"container": "output"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	}
+}
