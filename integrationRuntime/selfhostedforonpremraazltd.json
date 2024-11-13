@@ -1,0 +1,7 @@
+{
+	"name": "selfhostedforonpremraazltd",
+	"properties": {
+		"type": "SelfHosted",
+		"description": "it connects onprem raazltddb"
+	}
+}
