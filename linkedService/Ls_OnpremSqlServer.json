@@ -1,0 +1,21 @@
+{
+	"name": "Ls_OnpremSqlServer",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "DESKTOP-32450KP\\SQLEXPRESS",
+			"database": "raazltd",
+			"encrypt": "optional",
+			"trustServerCertificate": false,
+			"authenticationType": "Windows",
+			"userName": "DESKTOP-32450KP\\user",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJiYzUzOTI4Mi03NDUzLTQ5Y2EtYTk2NC03NjFiZjNhNmNmMmQiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "selfhostedforonpremraazltd",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}
