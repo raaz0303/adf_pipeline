@@ -1,0 +1,50 @@
+{
+	"name": "Ds_Blob_HydrationFile",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Ls_blob",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Excel",
+		"typeProperties": {
+			"sheetName": "Sheet2",
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "Hydration File1.xlsx",
+				"container": "input"
+			},
+			"firstRowAsHeader": true
+		},
+		"schema": [
+			{
+				"name": "Sno",
+				"type": "String"
+			},
+			{
+				"name": "SrcSchema",
+				"type": "String"
+			},
+			{
+				"name": "SrcTableName",
+				"type": "String"
+			},
+			{
+				"name": "SrcColumns",
+				"type": "String"
+			},
+			{
+				"name": "SinkSchema",
+				"type": "String"
+			},
+			{
+				"name": "SinkTableName",
+				"type": "String"
+			},
+			{
+				"name": "Status",
+				"type": "String"
+			}
+		]
+	}
+}
