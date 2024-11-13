@@ -1,0 +1,9 @@
+{
+	"name": "swatiltddf",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "26879d88-d24e-4054-9303-d79c5b434ad1",
+		"tenantId": "97c34a30-f315-4652-9127-d25bfcec78fb"
+	}
+}
