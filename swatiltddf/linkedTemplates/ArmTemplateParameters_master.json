@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "swatiltddf"
+		},
+		"Ls_OnpremSqlServer_password": {
+			"value": ""
+		},
+		"Ls_blob_connectionString": {
+			"value": ""
+		},
+		"Ls_OnpremSqlServer_properties_typeProperties_server": {
+			"value": "DESKTOP-32450KP\\SQLEXPRESS"
+		},
+		"Ls_OnpremSqlServer_properties_typeProperties_database": {
+			"value": "raazltd"
+		},
+		"Ls_OnpremSqlServer_properties_typeProperties_userName": {
+			"value": "DESKTOP-32450KP\\user"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}
