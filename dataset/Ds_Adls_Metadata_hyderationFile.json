@@ -1,0 +1,53 @@
+{
+	"name": "Ds_Adls_Metadata_hyderationFile",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDataLakeStorage1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "HYDRATION FILE.csv",
+				"folderPath": "MetaData",
+				"fileSystem": "output"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "tableID",
+				"type": "String"
+			},
+			{
+				"name": "schema",
+				"type": "String"
+			},
+			{
+				"name": "tableName",
+				"type": "String"
+			},
+			{
+				"name": "query",
+				"type": "String"
+			},
+			{
+				"name": "loadType",
+				"type": "String"
+			},
+			{
+				"name": "inc_watermark",
+				"type": "String"
+			},
+			{
+				"name": "status",
+				"type": "String"
+			}
+		]
+	}
+}

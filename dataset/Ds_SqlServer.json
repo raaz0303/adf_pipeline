@@ -1,0 +1,46 @@
+{
+	"name": "Ds_SqlServer",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Ls_SqlServer",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "tableID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "schemaa",
+				"type": "varchar"
+			},
+			{
+				"name": "tableName",
+				"type": "varchar"
+			},
+			{
+				"name": "query",
+				"type": "varchar"
+			},
+			{
+				"name": "loadType",
+				"type": "varchar"
+			},
+			{
+				"name": "inc_watermark",
+				"type": "varchar"
+			},
+			{
+				"name": "status",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "mt",
+			"table": "tableList"
+		}
+	}
+}
