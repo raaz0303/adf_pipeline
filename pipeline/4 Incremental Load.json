@@ -1,0 +1,147 @@
+{
+	"name": "4 Incremental Load",
+	"properties": {
+		"activities": [
+			{
+				"name": "Extract Table Names For Full Load And Incremental Load",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": "select schemaa,tableName,LoadType,inc_watermark,MergeStoredProcedure from mt.tableList\nwhere status=1",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "Ds_SqlServer_mtTableList",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Full Load Tables",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Extract Table Names For Full Load And Incremental Load",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Extract Table Names For Full Load And Incremental Load').output.value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@equals(item().loadType,'F')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Full Load Loop",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Full Load Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Full Load Tables').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Full Load On-Prem to ADLS",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": {
+											"value": "@item().schemaa",
+											"type": "Expression"
+										},
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Ds_Adls_Output_Data_Parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"folder": {
+			"name": "Project"
+		},
+		"annotations": []
+	}
+}

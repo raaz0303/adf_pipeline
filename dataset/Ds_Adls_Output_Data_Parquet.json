@@ -1,0 +1,28 @@
+{
+	"name": "Ds_Adls_Output_Data_Parquet",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDataLakeStorage1",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@concat('Data/',substring(utcNow(),0,4),'/',substring(utcNow(),5,2),'/',substring(utcNow(),8,2),'/',dataset().tableName)",
+					"type": "Expression"
+				},
+				"fileSystem": "output"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	}
+}
