@@ -68,6 +68,7 @@
 						"value": "@activity('Full Load Tables').output.value",
 						"type": "Expression"
 					},
+					"isSequential": false,
 					"activities": [
 						{
 							"name": "Full Load On-Prem to ADLS",
@@ -134,6 +135,372 @@
 									}
 								}
 							]
+						},
+						{
+							"name": "Full Load On-Prem to DB",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "SqlServerSink",
+									"preCopyScript": {
+										"value": "@concat('truncate table fi.',item().tableName)",
+										"type": "Expression"
+									},
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"tableOption": "autoCreate"
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": {
+											"value": "@item().schemaa",
+											"type": "Expression"
+										},
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Ds_SqlServer_Paramerised",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": "fi",
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "Incremental Load Tables",
+				"type": "Filter",
+				"dependsOn": [
+					{
+						"activity": "Extract Table Names For Full Load And Incremental Load",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Extract Table Names For Full Load And Incremental Load').output.value",
+						"type": "Expression"
+					},
+					"condition": {
+						"value": "@and(equals(item().loadType,'I'),equals(item().inc_watermark,'D' ))",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Incremental Load Loop",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Incremental Load Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Incremental Load Tables').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Watermark Value",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"sqlReaderQuery": {
+										"value": "@concat('select watermark_DateTime from mt.watermarkTables where tableName=''',item().tableName,'''')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "Ds_SqlServer_Db_Watermark",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "Max Date From Source",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"sqlReaderQuery": {
+										"value": "@concat('select max(LastModified) as LastModified from ',item().schemaa,'.',item().tableName)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "Ds_SqlServer_Onprem_Lookup",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "On-Prem to DataLake",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Watermark Value",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Max Date From Source",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"sqlReaderQuery": {
+										"value": "@concat('select * from ',item().schemaa,'.',item().tableName,' where LastModified>''',activity('Watermark Value').output.firstRow.watermark_DateTime,'''',' and LastModified <=''',activity('Max Date From Source').output.firstRow.LastModified,'''')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": {
+											"value": "@item().schemaa",
+											"type": "Expression"
+										},
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Ds_Adls_Output_Data_Parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "On-Prem to Stg DB_Sdb",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "On-Prem to DataLake",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "SqlServerSource",
+									"sqlReaderQuery": {
+										"value": "@concat('select * from ',item().schemaa,'.',item().tableName,' where LastModified>''',activity('Watermark Value').output.firstRow.watermark_DateTime,'''',' and LastModified <=''',activity('Max Date From Source').output.firstRow.LastModified,'''')",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "SqlServerSink",
+									"preCopyScript": {
+										"value": "@concat('truncate table fi.',item().tableName)",
+										"type": "Expression"
+									},
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"tableOption": "autoCreate"
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": {
+											"value": "@item().schemaa",
+											"type": "Expression"
+										},
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "Ds_SqlServer_Paramerised",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": "fi",
+										"tableName": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Update Watermark",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "On-Prem to Stg DB_Sdb",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "Ls_SqlServer",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "@concat('update mt.watermarkTables set watermark_DateTime = ''',activity('Max Date From Source').output.firstRow.LastModified,'''',' where tableName= ''',item().tableName,'''')",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
 						}
 					]
 				}

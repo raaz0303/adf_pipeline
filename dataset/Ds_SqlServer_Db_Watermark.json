@@ -1,0 +1,37 @@
+{
+	"name": "Ds_SqlServer_Db_Watermark",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Ls_SqlServer",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "tableName",
+				"type": "varchar"
+			},
+			{
+				"name": "watermark_DateTime",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "watermark_id",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "mt",
+			"table": "watermarkTables"
+		}
+	}
+}
