@@ -93,6 +93,7 @@
 					},
 					"sink": {
 						"type": "SqlServerSink",
+						"preCopyScript": "truncate table [mt].[tableList]",
 						"writeBehavior": "insert",
 						"sqlWriterUseTableLock": false
 					},
@@ -180,6 +181,18 @@
 								},
 								"sink": {
 									"name": "status",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "MergeStoredProcedure",
+									"type": "String",
+									"physicalType": "String"
+								},
+								"sink": {
+									"name": "MergeStoredProcedure",
 									"type": "String",
 									"physicalType": "varchar"
 								}
