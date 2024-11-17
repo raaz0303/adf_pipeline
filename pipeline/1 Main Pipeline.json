@@ -72,6 +72,29 @@
 						}
 					]
 				}
+			},
+			{
+				"name": "Execute Notebook Activity",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Which Pipeline To Be Execute",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "5 Notebook Script",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
 			}
 		],
 		"folder": {

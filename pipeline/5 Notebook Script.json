@@ -1,0 +1,51 @@
+{
+	"name": "5 Notebook Script",
+	"properties": {
+		"activities": [
+			{
+				"name": "aggregation and Back to Db",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/Users/swatidpu@gmail.com/ADF Project Data Presentation/Data From Sql Server aggregation and put back to Sql Server"
+				},
+				"linkedServiceName": {
+					"referenceName": "Ls_Notebook_Swati",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Aggregation and Back to ADLS",
+				"type": "DatabricksNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebookPath": "/Users/swatidpu@gmail.com/ADF Project Data Presentation/Data From Adls  aggregation and put back to Adls"
+				},
+				"linkedServiceName": {
+					"referenceName": "Ls_Notebook_Swati",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"folder": {
+			"name": "Project"
+		},
+		"annotations": []
+	}
+}
