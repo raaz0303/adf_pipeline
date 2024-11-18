@@ -5,7 +5,14 @@
 			{
 				"name": "Hyderation File Migration",
 				"type": "ExecutePipeline",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "Start Logs",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"secureInput": false
 				},
@@ -49,7 +56,13 @@
 									"referenceName": "4 Incremental Load",
 									"type": "PipelineReference"
 								},
-								"waitOnCompletion": true
+								"waitOnCompletion": true,
+								"parameters": {
+									"ParentID": {
+										"value": "@activity('Start Logs').output.firstRow.ID",
+										"type": "Expression"
+									}
+								}
 							}
 						}
 					],
@@ -95,8 +108,171 @@
 					},
 					"waitOnCompletion": true
 				}
+			},
+			{
+				"name": "Start Logs",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderStoredProcedureName": "[log].[ADFPipelinelogstartHierarchy]",
+						"storedProcedureParameters": {
+							"p_adfName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().DataFactory",
+									"type": "Expression"
+								}
+							},
+							"p_parentID": {
+								"type": "Int32",
+								"value": null
+							},
+							"p_pipelineName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().Pipeline",
+									"type": "Expression"
+								}
+							},
+							"p_runID": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							},
+							"p_runStart": {
+								"type": "Datetime",
+								"value": null
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "Ds_SqlServer",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "End Logs",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Execute Notebook Activity",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[log].[ADFPipelinelogsendhierarchy]",
+					"storedProcedureParameters": {
+						"p_errorMessage": {
+							"value": null,
+							"type": "String"
+						},
+						"p_id": {
+							"value": {
+								"value": "@activity('Start Logs').output.firstRow.ID",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"p_runEnd": {
+							"value": null,
+							"type": "Datetime"
+						},
+						"p_status": {
+							"value": {
+								"value": "@variables('SuccessStatus')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "Ls_SqlServer",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Email On Success",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "End Logs",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": "https://prod-23.centralindia.logic.azure.com:443/workflows/07015301eb75405a98b79f0bb335040e/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=3lN9hfmf1GBXOwuJoiRk4wuf04IdYVzy1c_sXD89akc",
+					"body": "{\"To\":\"publicconnecthub@gmail.com\",\"Subject\":\"ADF Main Pipeline Running Status \",\"Body\":\"Dear Public,\nThe Main Pipeline Has Successfully Completed, Now You can go For The Data.\nThanks& Regards\nCloud Team\"}"
+				}
+			},
+			{
+				"name": "Email On Failure",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "End Logs",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": "https://prod-23.centralindia.logic.azure.com:443/workflows/07015301eb75405a98b79f0bb335040e/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=3lN9hfmf1GBXOwuJoiRk4wuf04IdYVzy1c_sXD89akc",
+					"body": "{\"To\":\"publicconnecthub@gmail.com\",\"Subject\":\"ADF Main Pipeline Running Status \",\"Body\":\"Dear Public,\nThe Main Pipeline Has Failed, Now You Have To Wait For The Data.\nThanks& Regards\nCloud Team\"}"
+				}
 			}
 		],
+		"variables": {
+			"SuccessStatus": {
+				"type": "String",
+				"defaultValue": "Success"
+			}
+		},
 		"folder": {
 			"name": "Project"
 		},
