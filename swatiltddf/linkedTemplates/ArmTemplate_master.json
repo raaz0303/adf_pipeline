@@ -7,13 +7,33 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "swatiltddf"
 		},
+		"AzureDataLakeStorage1_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'AzureDataLakeStorage1'"
+		},
+		"Ls_Notebook_Swati_accessToken": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accessToken' of 'Ls_Notebook_Swati'"
+		},
 		"Ls_OnpremSqlServer_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'Ls_OnpremSqlServer'"
 		},
+		"Ls_SqlServer_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'Ls_SqlServer'"
+		},
 		"Ls_blob_connectionString": {
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'Ls_blob'"
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://swatiltdadlsgen2.dfs.core.windows.net/"
+		},
+		"Ls_Notebook_Swati_properties_typeProperties_existingClusterId": {
+			"type": "string",
+			"defaultValue": "1109-051053-h5ytj6tr"
 		},
 		"Ls_OnpremSqlServer_properties_typeProperties_server": {
 			"type": "string",
@@ -26,6 +46,18 @@
 		"Ls_OnpremSqlServer_properties_typeProperties_userName": {
 			"type": "string",
 			"defaultValue": "DESKTOP-32450KP\\user"
+		},
+		"Ls_SqlServer_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "swatiltdsqlserver.database.windows.net"
+		},
+		"Ls_SqlServer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "swatidb"
+		},
+		"Ls_SqlServer_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "swatiserver"
 		},
 		"containerUri": {
 			"type": "string",
@@ -54,11 +86,35 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
+					"AzureDataLakeStorage1_accountKey": {
+						"value": "[parameters('AzureDataLakeStorage1_accountKey')]"
+					},
+					"Ls_Notebook_Swati_accessToken": {
+						"value": "[parameters('Ls_Notebook_Swati_accessToken')]"
+					},
+					"Ls_SqlServer_password": {
+						"value": "[parameters('Ls_SqlServer_password')]"
+					},
 					"Ls_blob_connectionString": {
 						"value": "[parameters('Ls_blob_connectionString')]"
 					},
 					"Ls_OnpremSqlServer_password": {
 						"value": "[parameters('Ls_OnpremSqlServer_password')]"
+					},
+					"AzureDataLakeStorage1_properties_typeProperties_url": {
+						"value": "[parameters('AzureDataLakeStorage1_properties_typeProperties_url')]"
+					},
+					"Ls_Notebook_Swati_properties_typeProperties_existingClusterId": {
+						"value": "[parameters('Ls_Notebook_Swati_properties_typeProperties_existingClusterId')]"
+					},
+					"Ls_SqlServer_properties_typeProperties_server": {
+						"value": "[parameters('Ls_SqlServer_properties_typeProperties_server')]"
+					},
+					"Ls_SqlServer_properties_typeProperties_database": {
+						"value": "[parameters('Ls_SqlServer_properties_typeProperties_database')]"
+					},
+					"Ls_SqlServer_properties_typeProperties_userName": {
+						"value": "[parameters('Ls_SqlServer_properties_typeProperties_userName')]"
 					},
 					"Ls_OnpremSqlServer_properties_typeProperties_server": {
 						"value": "[parameters('Ls_OnpremSqlServer_properties_typeProperties_server')]"
@@ -72,6 +128,26 @@
 				}
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "swatiltddf_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'swatiltddf_ArmTemplate_0')]"
+			]
 		}
 	]
 }

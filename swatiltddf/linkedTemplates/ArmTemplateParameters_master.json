@@ -5,11 +5,26 @@
 		"factoryName": {
 			"value": "swatiltddf"
 		},
+		"AzureDataLakeStorage1_accountKey": {
+			"value": ""
+		},
+		"Ls_Notebook_Swati_accessToken": {
+			"value": ""
+		},
 		"Ls_OnpremSqlServer_password": {
+			"value": ""
+		},
+		"Ls_SqlServer_password": {
 			"value": ""
 		},
 		"Ls_blob_connectionString": {
 			"value": ""
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"value": "https://swatiltdadlsgen2.dfs.core.windows.net/"
+		},
+		"Ls_Notebook_Swati_properties_typeProperties_existingClusterId": {
+			"value": "1109-051053-h5ytj6tr"
 		},
 		"Ls_OnpremSqlServer_properties_typeProperties_server": {
 			"value": "DESKTOP-32450KP\\SQLEXPRESS"
@@ -19,6 +34,15 @@
 		},
 		"Ls_OnpremSqlServer_properties_typeProperties_userName": {
 			"value": "DESKTOP-32450KP\\user"
+		},
+		"Ls_SqlServer_properties_typeProperties_server": {
+			"value": "swatiltdsqlserver.database.windows.net"
+		},
+		"Ls_SqlServer_properties_typeProperties_database": {
+			"value": "swatidb"
+		},
+		"Ls_SqlServer_properties_typeProperties_userName": {
+			"value": "swatiserver"
 		},
 		"containerUri": {
 			"value": ""

@@ -7,13 +7,33 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "swatiltddf"
 		},
+		"AzureDataLakeStorage1_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'AzureDataLakeStorage1'"
+		},
+		"Ls_Notebook_Swati_accessToken": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accessToken' of 'Ls_Notebook_Swati'"
+		},
 		"Ls_OnpremSqlServer_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'Ls_OnpremSqlServer'"
 		},
+		"Ls_SqlServer_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'Ls_SqlServer'"
+		},
 		"Ls_blob_connectionString": {
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'Ls_blob'"
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://swatiltdadlsgen2.dfs.core.windows.net/"
+		},
+		"Ls_Notebook_Swati_properties_typeProperties_existingClusterId": {
+			"type": "string",
+			"defaultValue": "1109-051053-h5ytj6tr"
 		},
 		"Ls_OnpremSqlServer_properties_typeProperties_server": {
 			"type": "string",
@@ -26,6 +46,18 @@
 		"Ls_OnpremSqlServer_properties_typeProperties_userName": {
 			"type": "string",
 			"defaultValue": "DESKTOP-32450KP\\user"
+		},
+		"Ls_SqlServer_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "swatiltdsqlserver.database.windows.net"
+		},
+		"Ls_SqlServer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "swatidb"
+		},
+		"Ls_SqlServer_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "swatiserver"
 		}
 	},
 	"variables": {
@@ -140,6 +172,2369 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/1 Main Pipeline')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Hyderation File Migration",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Start Logs",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "2 Hyderation file Movement",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "Which Pipeline To Be Execute",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Hyderation File Migration",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@equals(substring(utcNow(),8,2),01)",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Incremental Load Pipeline Load",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "4 Incremental Load",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"ParentID": {
+												"value": "@activity('Start Logs').output.firstRow.ID",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							],
+							"ifTrueActivities": [
+								{
+									"name": "Full Load Every Months 1st Date pipeline Execute",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "3 Full Load Every Months 1st",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Execute Notebook Activity",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "Which Pipeline To Be Execute",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "5 Notebook Script",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "Start Logs",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderStoredProcedureName": "[[log].[ADFPipelinelogstartHierarchy]",
+								"storedProcedureParameters": {
+									"p_adfName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().DataFactory",
+											"type": "Expression"
+										}
+									},
+									"p_parentID": {
+										"type": "Int32",
+										"value": null
+									},
+									"p_pipelineName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										}
+									},
+									"p_runID": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										}
+									},
+									"p_runStart": {
+										"type": "Datetime",
+										"value": null
+									}
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "Ds_SqlServer",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "End Logs",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Execute Notebook Activity",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[log].[ADFPipelinelogsendhierarchy]",
+							"storedProcedureParameters": {
+								"p_errorMessage": {
+									"value": null,
+									"type": "String"
+								},
+								"p_id": {
+									"value": {
+										"value": "@activity('Start Logs').output.firstRow.ID",
+										"type": "Expression"
+									},
+									"type": "Int32"
+								},
+								"p_runEnd": {
+									"value": null,
+									"type": "Datetime"
+								},
+								"p_status": {
+									"value": {
+										"value": "@variables('SuccessStatus')",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "Ls_SqlServer",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Email On Success",
+						"type": "WebActivity",
+						"dependsOn": [
+							{
+								"activity": "End Logs",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"method": "POST",
+							"headers": {},
+							"url": "https://prod-23.centralindia.logic.azure.com:443/workflows/07015301eb75405a98b79f0bb335040e/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=3lN9hfmf1GBXOwuJoiRk4wuf04IdYVzy1c_sXD89akc",
+							"body": "{\"To\":\"publicconnecthub@gmail.com\",\"Subject\":\"ADF Main Pipeline Running Status \",\"Body\":\"Dear Public,\nThe Main Pipeline Has Successfully Completed, Now You can go For The Data.\nThanks& Regards\nCloud Team\"}"
+						}
+					},
+					{
+						"name": "Email On Failure",
+						"type": "WebActivity",
+						"dependsOn": [
+							{
+								"activity": "End Logs",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"method": "POST",
+							"headers": {},
+							"url": "https://prod-23.centralindia.logic.azure.com:443/workflows/07015301eb75405a98b79f0bb335040e/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=3lN9hfmf1GBXOwuJoiRk4wuf04IdYVzy1c_sXD89akc",
+							"body": "{\"To\":\"publicconnecthub@gmail.com\",\"Subject\":\"ADF Main Pipeline Running Status \",\"Body\":\"Dear Public,\nThe Main Pipeline Has Failed, Now You Have To Wait For The Data.\nThanks& Regards\nCloud Team\"}"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"SuccessStatus": {
+						"type": "String",
+						"defaultValue": "Success"
+					}
+				},
+				"folder": {
+					"name": "Project"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/2 Hyderation file Movement')]",
+				"[concat(variables('factoryId'), '/pipelines/5 Notebook Script')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer')]",
+				"[concat(variables('factoryId'), '/linkedServices/Ls_SqlServer')]",
+				"[concat(variables('factoryId'), '/pipelines/4 Incremental Load')]",
+				"[concat(variables('factoryId'), '/pipelines/3 Full Load Every Months 1st')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/2 Full Load Using Array_with_Json')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@variables('ListOfTables')",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select ',item().Column,' from ',item().Schema,'.',item().tableName)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobStorageWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_SqlServer_Onprem",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_Blob_Output_Parameter",
+											"type": "DatasetReference",
+											"parameters": {
+												"Schema": {
+													"value": "@item().Schema",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"ListOfTables": {
+						"type": "Array",
+						"defaultValue": [
+							{
+								"schema": "dbo",
+								"tablename": "Customers",
+								"filename": "Customers",
+								"Column": "CustomerID,FirstName,LastName"
+							},
+							{
+								"schema": "dbo",
+								"tablename": "Products",
+								"filename": "Products",
+								"Column": "ProductID,ProductName"
+							}
+						]
+					}
+				},
+				"folder": {
+					"name": "Full Load"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer_Onprem')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Blob_Output_Parameter')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/2 Hyderation file Movement')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Hyderation file from sharepoint to metadata",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "Ds_Adls_Input_Sharepoint",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Ds_Adls_Output_MetaData",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "Hyderation file copy from adls to db",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Hyderation file from sharepoint to metadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "SqlServerSink",
+								"preCopyScript": "truncate table [mt].[tableList]",
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "tableID",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "tableID",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "schema",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "schemaa",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "tableName",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "tableName",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "query",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "query",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "loadType",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "loadType",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "inc_watermark",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "inc_watermark",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "status",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "status",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "MergeStoredProcedure",
+											"type": "String",
+											"physicalType": "String"
+										},
+										"sink": {
+											"name": "MergeStoredProcedure",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "Ds_Adls_Metadata_hyderationFile",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Ds_SqlServer",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "Project"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Ds_Adls_Input_Sharepoint')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Adls_Output_MetaData')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Adls_Metadata_hyderationFile')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/3 Full Load Every Months 1st')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Extract Table Names for Full Load",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "select schemaa,tableName from mt.tableList\nwhere status=1",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "Ds_SqlServer",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Itrate for every table name",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Extract Table Names for Full Load",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Extract Table Names for Full Load').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Migrate Data From ONprem To Adls",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_Adls_Output_Data",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "Project"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_OnPrem_SqlServer_Parameterised')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Adls_Output_Data')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/3 Full Load Using Hydration File')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ExcelSource",
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								}
+							},
+							"dataset": {
+								"referenceName": "Ds_Blob_HydrationFile",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Lookup1').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select ',item().SrcColumns,' from ',item().SrcSchema,'.',item().SrcTableName)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobStorageWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_SqlServer_Onprem",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_Blob_Output_Parameter",
+											"type": "DatasetReference",
+											"parameters": {
+												"Schema": {
+													"value": "@item().SrcSchema",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().SrcTableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "Full Load"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Ds_Blob_HydrationFile')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer_Onprem')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Blob_Output_Parameter')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/4 Incremental Load')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Extract Table Names For Full Load And Incremental Load",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "Start Logs",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "select schemaa,tableName,LoadType,inc_watermark,MergeStoredProcedure from mt.tableList\nwhere status=1",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "Ds_SqlServer_mtTableList",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Full Load Tables",
+						"type": "Filter",
+						"dependsOn": [
+							{
+								"activity": "Extract Table Names For Full Load And Incremental Load",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Extract Table Names For Full Load And Incremental Load').output.value",
+								"type": "Expression"
+							},
+							"condition": {
+								"value": "@equals(item().loadType,'F')",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Full Load Loop",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Full Load Tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Full Load Tables').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "Full Load On-Prem to ADLS",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_Adls_Output_Data_Parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Full Load On-Prem to DB",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "SqlServerSink",
+											"preCopyScript": {
+												"value": "@concat('truncate table fi.',item().tableName)",
+												"type": "Expression"
+											},
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"tableOption": "autoCreate"
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "fi",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Stg Db Fi To Final Db Frt",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Full Load On-Prem to DB",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "SqlServerSink",
+											"preCopyScript": {
+												"value": "@concat('truncate table frt.',item().tableName)",
+												"type": "Expression"
+											},
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"tableOption": "autoCreate"
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "fi",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "frt",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "Incremental Load Tables",
+						"type": "Filter",
+						"dependsOn": [
+							{
+								"activity": "Extract Table Names For Full Load And Incremental Load",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Extract Table Names For Full Load And Incremental Load').output.value",
+								"type": "Expression"
+							},
+							"condition": {
+								"value": "@and(equals(item().loadType,'I'),equals(item().inc_watermark,'D' ))",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Incremental Load Loop",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Incremental Load Tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Incremental Load Tables').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Watermark Value",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select watermark_DateTime from mt.watermarkTables where tableName=''',item().tableName,'''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "Ds_SqlServer_Db_Watermark",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									}
+								},
+								{
+									"name": "Max Date From Source",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select max(LastModified) as LastModified from ',item().schemaa,'.',item().tableName)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "Ds_SqlServer_Onprem_Lookup",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									}
+								},
+								{
+									"name": "On-Prem to DataLake",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Watermark Value",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										},
+										{
+											"activity": "Max Date From Source",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select * from ',item().schemaa,'.',item().tableName,' where LastModified>''',activity('Watermark Value').output.firstRow.watermark_DateTime,'''',' and LastModified <=''',activity('Max Date From Source').output.firstRow.LastModified,'''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_Adls_Output_Data_Parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "On-Prem to Stg DB_Sdb",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "On-Prem to DataLake",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select * from ',item().schemaa,'.',item().tableName,' where LastModified>''',activity('Watermark Value').output.firstRow.watermark_DateTime,'''',' and LastModified <=''',activity('Max Date From Source').output.firstRow.LastModified,'''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "SqlServerSink",
+											"preCopyScript": {
+												"value": "@concat('truncate table fi.',item().tableName)",
+												"type": "Expression"
+											},
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"tableOption": "autoCreate"
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "fi",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Watermark",
+									"type": "Script",
+									"dependsOn": [
+										{
+											"activity": "On-Prem to Stg DB_Sdb",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"linkedServiceName": {
+										"referenceName": "Ls_SqlServer",
+										"type": "LinkedServiceReference"
+									},
+									"typeProperties": {
+										"scripts": [
+											{
+												"type": "Query",
+												"text": {
+													"value": "@concat('update mt.watermarkTables set watermark_DateTime = ''',activity('Max Date From Source').output.firstRow.LastModified,'''',' where tableName= ''',item().tableName,'''')",
+													"type": "Expression"
+												}
+											}
+										],
+										"scriptBlockExecutionTimeout": "02:00:00"
+									}
+								},
+								{
+									"name": "Merge From Fi to main Table Frt",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Update Watermark",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": {
+											"value": "@item().MergeStoredProcedure",
+											"type": "Expression"
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "Ls_SqlServer",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Incremental Load Based On Id",
+						"type": "Filter",
+						"dependsOn": [
+							{
+								"activity": "Extract Table Names For Full Load And Incremental Load",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Extract Table Names For Full Load And Incremental Load').output.value",
+								"type": "Expression"
+							},
+							"condition": {
+								"value": "@and(equals(item().loadType,'I'),equals(item().inc_watermark,'I' ))",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Incremental Load Loop Based On Id",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Incremental Load Based On Id",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Incremental Load Based On Id').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Watermark ID",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select watermark_id from mt.watermarkTables where tableName=''',item().tableName,'''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "Ds_SqlServer_Db_Watermark",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									}
+								},
+								{
+									"name": "Max Id From Source",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select max(ID) as ID from ',item().schemaa,'.',item().tableName)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "Ds_SqlServer_Onprem_Lookup",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									}
+								},
+								{
+									"name": "On-Prem to DataLake_copy",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Watermark ID",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										},
+										{
+											"activity": "Max Id From Source",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select * from ',item().schemaa,'.',item().tableName,' where ID>''',activity('Watermark ID').output.firstRow.watermark_id,'''',' and ID <=''',activity('Max Id From Source').output.firstRow.ID,'''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_Adls_Output_Data_Parquet",
+											"type": "DatasetReference",
+											"parameters": {
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "On-Prem to Stg DB_Sdb_copy",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "On-Prem to DataLake_copy",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('select * from ',item().schemaa,'.',item().tableName,' where ID>''',activity('Watermark ID').output.firstRow.watermark_id,'''',' and ID <=''',activity('Max Id From Source').output.firstRow.ID,'''')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "SqlServerSink",
+											"preCopyScript": {
+												"value": "@concat('truncate table fi.',item().tableName)",
+												"type": "Expression"
+											},
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"tableOption": "autoCreate"
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_OnPrem_SqlServer_Parameterised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": {
+													"value": "@item().schemaa",
+													"type": "Expression"
+												},
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "fi",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Watermark ID",
+									"type": "Script",
+									"dependsOn": [
+										{
+											"activity": "On-Prem to Stg DB_Sdb_copy",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"linkedServiceName": {
+										"referenceName": "Ls_SqlServer",
+										"type": "LinkedServiceReference"
+									},
+									"typeProperties": {
+										"scripts": [
+											{
+												"type": "Query",
+												"text": {
+													"value": "@concat('update mt.watermarkTables set watermark_id = ''',activity('Max Id From Source').output.firstRow.ID,'''',' where tableName= ''',item().tableName,'''')",
+													"type": "Expression"
+												}
+											}
+										],
+										"scriptBlockExecutionTimeout": "02:00:00"
+									}
+								},
+								{
+									"name": "Stg Db Fi To Final Db Frt ID",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Update Watermark ID",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "SqlServerSink",
+											"writeBehavior": "insert",
+											"sqlWriterUseTableLock": false,
+											"tableOption": "autoCreate"
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "fi",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Ds_SqlServer_Paramerised",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "frt",
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "Start Logs",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderStoredProcedureName": "[[log].[ADFPipelinelogstartHierarchy]",
+								"storedProcedureParameters": {
+									"p_adfName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().DataFactory",
+											"type": "Expression"
+										}
+									},
+									"p_parentID": {
+										"type": "Int32",
+										"value": {
+											"value": "@pipeline().parameters.ParentID",
+											"type": "Expression"
+										}
+									},
+									"p_pipelineName": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										}
+									},
+									"p_runID": {
+										"type": "String",
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										}
+									},
+									"p_runStart": {
+										"type": "Datetime",
+										"value": null
+									}
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "Ds_SqlServer",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "End Logs",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Incremental Load Loop",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Incremental Load Loop Based On Id",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Full Load Loop",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[log].[ADFPipelinelogsendhierarchy]",
+							"storedProcedureParameters": {
+								"p_errorMessage": {
+									"value": null,
+									"type": "String"
+								},
+								"p_id": {
+									"value": {
+										"value": "@activity('Start Logs').output.firstRow.ID",
+										"type": "Expression"
+									},
+									"type": "Int32"
+								},
+								"p_runEnd": {
+									"value": null,
+									"type": "Datetime"
+								},
+								"p_status": {
+									"value": {
+										"value": "@variables('status')",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "Ls_SqlServer",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ParentID": {
+						"type": "int"
+					}
+				},
+				"variables": {
+					"status": {
+						"type": "String",
+						"defaultValue": "Success"
+					}
+				},
+				"folder": {
+					"name": "Project"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer_mtTableList')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer')]",
+				"[concat(variables('factoryId'), '/linkedServices/Ls_SqlServer')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_OnPrem_SqlServer_Parameterised')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_Adls_Output_Data_Parquet')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer_Paramerised')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer_Db_Watermark')]",
+				"[concat(variables('factoryId'), '/datasets/Ds_SqlServer_Onprem_Lookup')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/5 Notebook Script')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "aggregation and Back to Db",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/swatidpu@gmail.com/ADF Project Data Presentation/Data From Sql Server aggregation and put back to Sql Server"
+						},
+						"linkedServiceName": {
+							"referenceName": "Ls_Notebook_Swati",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Aggregation and Back to ADLS",
+						"type": "DatabricksNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/swatidpu@gmail.com/ADF Project Data Presentation/Data From Adls  aggregation and put back to Adls"
+						},
+						"linkedServiceName": {
+							"referenceName": "Ls_Notebook_Swati",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "Project"
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_Notebook_Swati')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Adls_Input_Sharepoint')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "HYDRATION FILE.csv",
+						"folderPath": "Sharepoint",
+						"fileSystem": "input"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "tableID",
+						"type": "String"
+					},
+					{
+						"name": "schema",
+						"type": "String"
+					},
+					{
+						"name": "tableName",
+						"type": "String"
+					},
+					{
+						"name": "query",
+						"type": "String"
+					},
+					{
+						"name": "loadType",
+						"type": "String"
+					},
+					{
+						"name": "inc_watermark",
+						"type": "String"
+					},
+					{
+						"name": "status",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Adls_Metadata_hyderationFile')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "HYDRATION FILE.csv",
+						"folderPath": "MetaData",
+						"fileSystem": "output"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "tableID",
+						"type": "String"
+					},
+					{
+						"name": "schema",
+						"type": "String"
+					},
+					{
+						"name": "tableName",
+						"type": "String"
+					},
+					{
+						"name": "query",
+						"type": "String"
+					},
+					{
+						"name": "loadType",
+						"type": "String"
+					},
+					{
+						"name": "inc_watermark",
+						"type": "String"
+					},
+					{
+						"name": "status",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Adls_Output_Data')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@concat(dataset().schema,'_',dataset().tableName,'.csv')",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@concat('Data/',substring(utcNow(),0,4),'/',substring(utcNow(),5,2),'/',substring(utcNow(),8,2))",
+							"type": "Expression"
+						},
+						"fileSystem": "output"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Adls_Output_Data_Parquet')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@concat('Data/',substring(utcNow(),0,4),'/',substring(utcNow(),5,2),'/',substring(utcNow(),8,2),'/',dataset().tableName)",
+							"type": "Expression"
+						},
+						"fileSystem": "output"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Adls_Output_MetaData')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "MetaData",
+						"fileSystem": "output"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/Ds_BlobSink_Output')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -176,6 +2571,135 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Blob_HydrationFile')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_blob",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Excel",
+				"typeProperties": {
+					"sheetName": "Sheet2",
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": "Hydration File1.xlsx",
+						"container": "input"
+					},
+					"firstRowAsHeader": true
+				},
+				"schema": [
+					{
+						"name": "Sno",
+						"type": "String"
+					},
+					{
+						"name": "SrcSchema",
+						"type": "String"
+					},
+					{
+						"name": "SrcTableName",
+						"type": "String"
+					},
+					{
+						"name": "SrcColumns",
+						"type": "String"
+					},
+					{
+						"name": "SinkSchema",
+						"type": "String"
+					},
+					{
+						"name": "SinkTableName",
+						"type": "String"
+					},
+					{
+						"name": "Status",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_blob')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_Blob_Output_Parameter')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_blob",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"Schema": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@concat(dataset().Schema,'_',dataset().tableName,'.csv')",
+							"type": "Expression"
+						},
+						"container": "output"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_blob')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_OnPrem_SqlServer_Parameterised')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_OnpremSqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().tableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_OnpremSqlServer')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/Ds_SourceOnpremSqlServer')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -203,6 +2727,256 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/Ls_OnpremSqlServer')]"
 			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_SqlServer')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_SqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "tableID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "schemaa",
+						"type": "varchar"
+					},
+					{
+						"name": "tableName",
+						"type": "varchar"
+					},
+					{
+						"name": "query",
+						"type": "varchar"
+					},
+					{
+						"name": "loadType",
+						"type": "varchar"
+					},
+					{
+						"name": "inc_watermark",
+						"type": "varchar"
+					},
+					{
+						"name": "status",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "mt",
+					"table": "tableList"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_SqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_SqlServer_Db_Watermark')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_SqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "tableName",
+						"type": "varchar"
+					},
+					{
+						"name": "watermark_DateTime",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "watermark_id",
+						"type": "int",
+						"precision": 10
+					}
+				],
+				"typeProperties": {
+					"schema": "mt",
+					"table": "watermarkTables"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_SqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_SqlServer_Onprem')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_OnpremSqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_OnpremSqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_SqlServer_Onprem_Lookup')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_OnpremSqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_OnpremSqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_SqlServer_Paramerised')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_SqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string"
+					},
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().tableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_SqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ds_SqlServer_mtTableList')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "Ls_SqlServer",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "tableID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "schemaa",
+						"type": "varchar"
+					},
+					{
+						"name": "tableName",
+						"type": "varchar"
+					},
+					{
+						"name": "query",
+						"type": "varchar"
+					},
+					{
+						"name": "loadType",
+						"type": "varchar"
+					},
+					{
+						"name": "inc_watermark",
+						"type": "varchar"
+					},
+					{
+						"name": "status",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "mt",
+					"table": "tableList"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/Ls_SqlServer')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureDataLakeStorage1')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('AzureDataLakeStorage1_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('AzureDataLakeStorage1_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Ls_Notebook_Swati')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://adb-3619579225940598.18.azuredatabricks.net",
+					"accessToken": {
+						"type": "SecureString",
+						"value": "[parameters('Ls_Notebook_Swati_accessToken')]"
+					},
+					"existingClusterId": "[parameters('Ls_Notebook_Swati_properties_typeProperties_existingClusterId')]"
+				}
+			},
+			"dependsOn": []
 		},
 		{
 			"name": "[concat(parameters('factoryName'), '/Ls_OnpremSqlServer')]",
@@ -233,6 +3007,28 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/Ls_SqlServer')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"server": "[parameters('Ls_SqlServer_properties_typeProperties_server')]",
+					"database": "[parameters('Ls_SqlServer_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('Ls_SqlServer_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('Ls_SqlServer_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/Ls_blob')]",
 			"type": "Microsoft.DataFactory/factories/linkedServices",
 			"apiVersion": "2018-06-01",
@@ -255,6 +3051,38 @@
 				"typeProperties": {}
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Scheduled_Trigger')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "1 Main Pipeline",
+							"type": "PipelineReference"
+						},
+						"parameters": {}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Day",
+						"interval": 1,
+						"startTime": "2024-11-18T13:10:00",
+						"endTime": "2024-11-24T13:00:00",
+						"timeZone": "India Standard Time",
+						"schedule": {}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/1 Main Pipeline')]"
+			]
 		}
 	]
 }
